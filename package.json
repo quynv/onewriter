@@ -1,0 +1,404 @@
+{
+  "name": "onewriter",
+  "displayName": "OneWriter",
+  "description": "%extension.description%",
+  "version": "0.1.0",
+  "publisher": "onewriter",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Education",
+    "Other"
+  ],
+  "keywords": [
+    "language learning",
+    "anki",
+    "writing",
+    "english",
+    "japanese"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "markdown.markdownItPlugins": true,
+    "markdown.previewStyles": [
+      "media/markdown-preview.css"
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "onewriter",
+          "title": "OneWriter",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "onewriter": [
+        {
+          "id": "onewriter.panel",
+          "name": "%view.name%",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "onewriter.addSelectionToChunks",
+        "title": "%command.addSelectionToChunks%"
+      },
+      {
+        "command": "onewriter.removeQueuedChunk",
+        "title": "%command.removeQueuedChunk%"
+      },
+      {
+        "command": "onewriter.clearCurrentFileChunks",
+        "title": "%command.clearCurrentFileChunks%"
+      },
+      {
+        "command": "onewriter.cleanChunkQueue",
+        "title": "%command.cleanChunkQueue%"
+      },
+      {
+        "command": "onewriter.review",
+        "title": "%command.review%",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "onewriter.showLastReview",
+        "title": "%command.showLastReview%",
+        "icon": "$(history)"
+      },
+      {
+        "command": "onewriter.newPractice",
+        "title": "%command.newPractice%",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "onewriter.saveToAnki",
+        "title": "%command.saveToAnki%",
+        "icon": "$(archive)"
+      },
+      {
+        "command": "onewriter.clearReview",
+        "title": "%command.clearReview%"
+      },
+      {
+        "command": "onewriter.applyIssue",
+        "title": "%command.applyIssue%"
+      },
+      {
+        "command": "onewriter.explainIssue",
+        "title": "%command.explainIssue%"
+      },
+      {
+        "command": "onewriter.setApiKey",
+        "title": "%command.setApiKey%"
+      },
+      {
+        "command": "onewriter.deleteApiKey",
+        "title": "%command.deleteApiKey%"
+      },
+      {
+        "command": "onewriter.checkAnki",
+        "title": "%command.checkAnki%"
+      },
+      {
+        "command": "onewriter.switchTarget",
+        "title": "%command.switchTarget%"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "onewriter.addSelectionToChunks",
+          "when": "editorHasSelection",
+          "group": "onewriter@1"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "onewriter.review",
+          "when": "onewriter.isPracticeFile",
+          "group": "navigation@1"
+        },
+        {
+          "command": "onewriter.showLastReview",
+          "when": "onewriter.hasReview",
+          "group": "navigation@2"
+        },
+        {
+          "command": "onewriter.saveToAnki",
+          "when": "resourceScheme != untitled",
+          "group": "navigation@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "onewriter.applyIssue",
+          "when": "false"
+        },
+        {
+          "command": "onewriter.explainIssue",
+          "when": "false"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "onewriter.review",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r",
+        "when": "onewriter.isPracticeFile"
+      }
+    ],
+    "configuration": {
+      "title": "OneWriter",
+      "properties": {
+        "onewriter.nativeLanguage": {
+          "type": "string",
+          "default": "vi",
+          "enum": [
+            "vi",
+            "en",
+            "ja"
+          ],
+          "enumDescriptions": [
+            "Vietnamese",
+            "English",
+            "Japanese"
+          ],
+          "description": "%config.nativeLanguage%"
+        },
+        "onewriter.uiLanguage": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "en",
+            "vi",
+            "ja"
+          ],
+          "enumDescriptions": [
+            "Follow your native language, then the VS Code display language.",
+            "English",
+            "Vietnamese",
+            "Japanese"
+          ],
+          "description": "%config.uiLanguage%"
+        },
+        "onewriter.targets": {
+          "type": "array",
+          "default": [
+            {
+              "language": "en",
+              "level": "B1"
+            }
+          ],
+          "description": "%config.targets%",
+          "items": {
+            "type": "object",
+            "required": [
+              "language",
+              "level"
+            ],
+            "properties": {
+              "language": {
+                "type": "string",
+                "enum": [
+                  "en",
+                  "ja"
+                ],
+                "description": "ISO 639-1 code of the language you are practising."
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "A2",
+                  "B1",
+                  "B2",
+                  "C1",
+                  "N4",
+                  "N3",
+                  "N2",
+                  "N1"
+                ],
+                "description": "Level. A2–C1 for English, N4–N1 for Japanese."
+              },
+              "style": {
+                "type": "string",
+                "enum": [
+                  "plain",
+                  "polite",
+                  "formal"
+                ],
+                "default": "polite",
+                "description": "Register. For Japanese: plain = だ・である, polite = です・ます, formal = 書き言葉."
+              }
+            }
+          }
+        },
+        "onewriter.activeTarget": {
+          "type": "string",
+          "default": "en",
+          "description": "%config.activeTarget%"
+        },
+        "onewriter.practiceGlob": {
+          "type": "string",
+          "default": "**/*.md",
+          "description": "%config.practiceGlob%"
+        },
+        "onewriter.llm.provider": {
+          "type": "string",
+          "scope": "resource",
+          "default": "gemini",
+          "enum": [
+            "gemini",
+            "openai",
+            "qwen",
+            "deepseek",
+            "claude"
+          ],
+          "enumDescriptions": [
+            "%config.llm.provider.gemini%",
+            "%config.llm.provider.openai%",
+            "%config.llm.provider.qwen%",
+            "%config.llm.provider.deepseek%",
+            "%config.llm.provider.claude%"
+          ],
+          "description": "%config.llm.provider%"
+        },
+        "onewriter.llm.gemini.model": {
+          "type": "string",
+          "scope": "resource",
+          "default": "gemini-3.8-flash",
+          "description": "%config.llm.gemini.model%"
+        },
+        "onewriter.llm.openai.model": {
+          "type": "string",
+          "scope": "resource",
+          "default": "gpt-5.6-luna",
+          "description": "%config.llm.openai.model%"
+        },
+        "onewriter.llm.qwen.model": {
+          "type": "string",
+          "scope": "resource",
+          "default": "qwen3.8-max",
+          "description": "%config.llm.qwen.model%"
+        },
+        "onewriter.llm.qwen.baseUrl": {
+          "type": "string",
+          "scope": "resource",
+          "default": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+          "description": "%config.llm.qwen.baseUrl%"
+        },
+        "onewriter.llm.deepseek.model": {
+          "type": "string",
+          "scope": "resource",
+          "default": "deepseek-v4-flash",
+          "description": "%config.llm.deepseek.model%"
+        },
+        "onewriter.llm.claude.model": {
+          "type": "string",
+          "scope": "resource",
+          "default": "claude-sonnet-4-6",
+          "description": "%config.llm.claude.model%"
+        },
+        "onewriter.llm.timeoutMs": {
+          "type": "number",
+          "default": 300000,
+          "description": "%config.llm.timeoutMs%"
+        },
+        "onewriter.llm.maxChunks": {
+          "type": "number",
+          "default": 8,
+          "description": "%config.llm.maxChunks%"
+        },
+        "onewriter.llm.promptTemplate": {
+          "type": "string",
+          "default": "",
+          "description": "%config.llm.promptTemplate%"
+        },
+        "onewriter.review.mode": {
+          "type": "string",
+          "default": "codelens",
+          "enum": [
+            "diff",
+            "codelens",
+            "webview"
+          ],
+          "enumDescriptions": [
+            "Open the VS Code diff editor comparing your text with the rewrite.",
+            "Underline mistakes in the text itself, with a fix button on each line.",
+            "Open a side-by-side panel and go through mistakes one at a time."
+          ],
+          "description": "%config.review.mode%"
+        },
+        "onewriter.review.explanationLanguage": {
+          "type": "string",
+          "default": "native",
+          "enum": [
+            "native",
+            "target"
+          ],
+          "enumDescriptions": [
+            "Explain in your native language.",
+            "Explain in the language you are learning."
+          ],
+          "description": "%config.review.explanationLanguage%"
+        },
+        "onewriter.review.showBetter": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.review.showBetter%"
+        },
+        "onewriter.anki.url": {
+          "type": "string",
+          "default": "http://127.0.0.1:8765",
+          "description": "%config.anki.url%"
+        },
+        "onewriter.anki.deckPattern": {
+          "type": "string",
+          "default": "OneWriter::{language}",
+          "description": "%config.anki.deckPattern%"
+        },
+        "onewriter.anki.modelName": {
+          "type": "string",
+          "default": "OneWriter Chunk",
+          "description": "%config.anki.modelName%"
+        },
+        "onewriter.anki.tags": {
+          "type": "array",
+          "default": [
+            "onewriter"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "%config.anki.tags%"
+        },
+        "onewriter.anki.skipDuplicates": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.anki.skipDuplicates%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.js --production",
+    "watch": "node esbuild.js --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.90.0",
+    "esbuild": "^0.21.5",
+    "typescript": "^5.4.5"
+  }
+}

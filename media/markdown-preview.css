@@ -1,0 +1,22 @@
+.onewriter-frontmatter {
+  margin: 0 0 1.25rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--vscode-editorWidget-border);
+  border-radius: 6px;
+  background: var(--vscode-textBlockQuote-background);
+}
+
+.onewriter-frontmatter summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.onewriter-frontmatter table {
+  margin: 0.75rem 0 0;
+}
+
+.onewriter-frontmatter th,
+.onewriter-frontmatter td {
+  padding: 0.25rem 0.6rem;
+  text-align: left;
+}
