@@ -77,6 +77,11 @@
         "icon": "$(new-file)"
       },
       {
+        "command": "onewriter.generateSource",
+        "title": "%command.generateSource%",
+        "icon": "$(wand)"
+      },
+      {
         "command": "onewriter.saveToAnki",
         "title": "%command.saveToAnki%",
         "icon": "$(archive)"
@@ -119,6 +124,11 @@
         }
       ],
       "editor/title": [
+        {
+          "command": "onewriter.generateSource",
+          "when": "onewriter.isPracticeFile",
+          "group": "navigation@0"
+        },
         {
           "command": "onewriter.review",
           "when": "onewriter.isPracticeFile",

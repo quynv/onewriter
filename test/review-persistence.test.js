@@ -382,3 +382,50 @@ test('panel warns safely when keeping an issue cannot persist resolved state', a
   assert.equal(warnings.length, 1);
   assert.doesNotMatch(warnings[0], /private-review-text/);
 });
+
+test('applying an issue relocates remaining issues from Writing rather than duplicate Source text', async () => {
+  const text = [
+    '---', 'lang: ja', '---', '',
+    '## Source', '', '同じ表現があります。', '',
+    '## Writing', '', '同じ表現があります。次の誤りです。',
+  ].join('\n');
+  const target = uri('file:///writing.md');
+  const first = text.lastIndexOf('同じ表現');
+  const reviewed = {
+    ...session(), uri: target, resolved: new Set(),
+    result: {
+      ...session().result,
+      issues: [
+        { id: 'first', original: '同じ表現', replacement: 'この表現', category: 'better', severity: 1, explanation: 'x', range: { start: first, end: first + 4 } },
+        { id: 'second', original: '次の誤り', replacement: '次の表現', category: 'grammar', severity: 2, explanation: 'y' },
+      ],
+    },
+  };
+  let locateOffset;
+  const store = {
+    get: () => reviewed,
+    markResolved: async () => reviewed.resolved.add('first'),
+    pending: () => [reviewed.result.issues[1]],
+    set: async () => {},
+  };
+  class WorkspaceEdit { replace() {} }
+  const controllerVscode = {
+    ...vscode, WorkspaceEdit,
+    workspace: {
+      ...vscode.workspace,
+      openTextDocument: async () => ({
+        getText: (range) => range ? '同じ表現' : text,
+      }),
+      applyEdit: async () => true,
+    },
+    window: { ...vscode.window, showWarningMessage: async () => {}, showErrorMessage: async () => {} },
+  };
+  const { ReviewController } = loadTs('src/review/controller.ts', {
+    vscode: controllerVscode,
+    './locate': { locateIssues: (_document, issues, offset) => { locateOffset = offset; return issues; } },
+  });
+
+  await new ReviewController({}, store, {}, {}, {}).applyIssue(target, 'first');
+
+  assert.equal(locateOffset, text.indexOf('同じ表現', text.indexOf('## Writing')));
+});

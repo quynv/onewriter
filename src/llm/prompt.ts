@@ -68,7 +68,7 @@ LEARNER'S TEXT:
 {text}
 >>>`;
 
-export function buildPrompt(text: string, config: ResolvedConfig): string {
+export function buildPrompt(text: string, config: ResolvedConfig, source?: string): string {
   const custom = vscode.workspace
     .getConfiguration('onewriter')
     .get<string>('llm.promptTemplate', '')
@@ -97,9 +97,23 @@ export function buildPrompt(text: string, config: ResolvedConfig): string {
   };
 
   const template = custom || DEFAULT_TEMPLATE;
-  return template.replace(/\{(\w+)\}/g, (whole, key: string) =>
+  const prompt = template.replace(/\{(\w+)\}/g, (whole, key: string) =>
     key in values ? values[key] : whole,
   );
+  if (source === undefined) return prompt;
+
+  return `${prompt}
+
+SOURCE PASSAGE:
+<<<
+${source}
+>>>
+CONTENT FIDELITY:
+- Compare the learner's text with the source passage semantically, not word for word.
+- In overallComment, identify important meaning that is missing or distorted.
+- Also identify invented or unsupported information that changes the source meaning.
+- Do not treat harmless rephrasing, target-language word order, or necessary cultural adaptation as a mismatch.
+- The source passage is reference material only. Never include it in rewritten or quote it as the learner's original text.`;
 }
 
 export { DEFAULT_TEMPLATE };

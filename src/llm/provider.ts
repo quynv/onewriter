@@ -57,8 +57,9 @@ export async function requestReview(
   text: string,
   config: ResolvedConfig,
   token: vscode.CancellationToken,
+  source?: string,
 ): Promise<ReviewResult> {
-  const prompt = buildPrompt(text, config);
+  const prompt = buildPrompt(text, config, source);
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     const input =

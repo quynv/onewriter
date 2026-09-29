@@ -66,6 +66,24 @@ Keep Anki Desktop running with the [AnkiConnect](https://ankiweb.net/shared/info
 
 Writing review is an independent workflow. Select the sparkle button or press `Ctrl+Alt+R` (`Cmd+Alt+R` on macOS) to review the passage. You can add and save manually selected chunks without reviewing the document first.
 
+### Source-based writing
+
+After entering a `topic` in front matter, select **OneWriter: Generate source passage** from the editor title toolbar. OneWriter uses the current REST provider to create a passage in `onewriter.nativeLanguage`, then keeps it in the same file:
+
+```markdown
+## Source
+
+Tôi thức dậy lúc bảy giờ và chuẩn bị đi làm.
+
+## Writing
+
+私は七時に起きて、仕事へ行く準備をします。
+```
+
+Write only in the `Writing` section. During review, OneWriter sends `Source` as reference material and asks the model to identify missing, distorted, or invented meaning in addition to language mistakes. Corrections and issue locations apply only to `Writing`. Generating the source again asks for confirmation and preserves the existing `Writing` section.
+
+Files without a valid `## Source` followed by `## Writing` keep the original review behavior: their complete body is reviewed without content-fidelity comparison.
+
 ## Language, level, and writing style
 
 There are three ways to configure the review target.
@@ -128,7 +146,7 @@ To add another target language:
 
 ## Interface language
 
-`onewriter.uiLanguage` defaults to `auto`. Automatic selection prefers `onewriter.nativeLanguage`, then the VS Code display language when a matching bundle exists, and finally English. Set it explicitly to `en`, `vi`, or `ja` when needed. Changing this setting updates the OneWriter sidebar immediately.
+`onewriter.nativeLanguage` defaults to `vi` and controls generated source passages, review explanations configured for the native language, and Anki meanings. `onewriter.uiLanguage` defaults to `auto`. Automatic interface selection prefers `onewriter.nativeLanguage`, then the VS Code display language when a matching bundle exists, and finally English. Set the interface language explicitly to `en`, `vi`, or `ja` when needed. Changing it updates the OneWriter sidebar immediately.
 
 Translations live in two places:
 

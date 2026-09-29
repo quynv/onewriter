@@ -35,6 +35,18 @@ test('the latest-review command is localized and available from the editor title
   assert.match(menu?.when ?? '', /onewriter\.hasReview/);
 });
 
+test('source generation is localized and available from the editor title', () => {
+  const command = manifest.contributes.commands.find((entry) => entry.command === 'onewriter.generateSource');
+  assert.equal(command?.title, '%command.generateSource%');
+  assert.ok(command?.icon);
+  for (const file of localeFiles) {
+    assert.ok(JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'))['command.generateSource']);
+  }
+  const menu = manifest.contributes.menus['editor/title']
+    .find((entry) => entry.command === 'onewriter.generateSource');
+  assert.match(menu?.when ?? '', /onewriter\.isPracticeFile/);
+});
+
 test('the extension contributes its front matter renderer and preview styles to Markdown', () => {
   assert.equal(manifest.contributes['markdown.markdownItPlugins'], true);
   assert.deepEqual(manifest.contributes['markdown.previewStyles'], ['media/markdown-preview.css']);

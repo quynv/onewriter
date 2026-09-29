@@ -11,7 +11,7 @@ export async function reportLlmError(
   context: vscode.ExtensionContext,
   err: unknown,
   resource?: vscode.Uri,
-  operation: 'review' | 'chunks' = 'review',
+  operation: 'review' | 'chunks' | 'source' = 'review',
 ): Promise<void> {
   const kind = err instanceof LLMError ? err.kind : 'other';
   const exhaustedReviewParsing = err instanceof LLMError && err.message === t('llm.badJson');
@@ -52,7 +52,9 @@ export async function reportLlmError(
   }
 
   if (kind === 'timeout') {
-    await vscode.window.showErrorMessage(t(operation === 'chunks' ? 'llm.chunksTimeout' : 'llm.reviewTimeout', {
+    const timeoutKey = operation === 'chunks' ? 'llm.chunksTimeout'
+      : operation === 'source' ? 'llm.sourceTimeout' : 'llm.reviewTimeout';
+    await vscode.window.showErrorMessage(t(timeoutKey, {
       ...details,
       seconds: Math.round(cfg.get<number>('llm.timeoutMs', 300000) / 1000),
     }));

@@ -17,6 +17,15 @@ import { PanelRenderer } from './review/panel';
 import { ReviewController } from './review/controller';
 import { SidebarProvider } from './ui/sidebar';
 import { installFrontMatterPreview, type MarkdownItLike } from './markdown/preview';
+import { createProvider } from './llm/provider';
+import { LLMError } from './llm/errors';
+import { reportLlmError } from './llm/report';
+import {
+  buildSourcePrompt,
+  isSafeGeneratedSource,
+  parsePracticeBody,
+  upsertSourceSection,
+} from './practice/source';
 
 export function extendMarkdownIt(md: MarkdownItLike): MarkdownItLike {
   return installFrontMatterPreview(md);
@@ -273,6 +282,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<OneWri
     }),
 
     vscode.commands.registerCommand('onewriter.newPractice', () => newPractice()),
+
+    vscode.commands.registerCommand('onewriter.generateSource', () => generateSource(context)),
   );
 
   // Persistence errors may contain document text or paths; log only a local label.
@@ -405,6 +416,71 @@ date: ${date}
   const editor = await vscode.window.showTextDocument(document);
   const end = new vscode.Position(document.lineCount, 0);
   editor.selection = new vscode.Selection(end, end);
+}
+
+async function generateSource(context: vscode.ExtensionContext): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    await vscode.window.showInformationMessage(t('review.openFileFirst'));
+    return;
+  }
+
+  const { document } = editor;
+  const config = resolveConfig(document);
+  if (!config.topic?.trim()) {
+    await vscode.window.showInformationMessage(t('source.topicRequired'));
+    return;
+  }
+
+  const initialText = document.getText();
+  const { body, offset } = stripFrontMatter(initialText);
+  if (parsePracticeBody(body).source !== undefined) {
+    const replace = t('source.replaceAction');
+    const answer = await vscode.window.showWarningMessage(
+      t('source.replaceConfirm'),
+      { modal: true },
+      replace,
+    );
+    if (answer !== replace) return;
+  }
+
+  const llm = await createProvider(context, document.uri);
+  if (!llm) return;
+
+  try {
+    const generated = await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: t('source.progress'),
+        cancellable: true,
+      },
+      (_progress, token) => llm.complete(buildSourcePrompt(config), token),
+    );
+    if (!isSafeGeneratedSource(generated)) {
+      await vscode.window.showErrorMessage(t(
+        generated.trim() ? 'source.invalidResult' : 'source.emptyResult',
+      ));
+      return;
+    }
+    if (document.getText() !== initialText) {
+      await vscode.window.showWarningMessage(t('source.documentChanged'));
+      return;
+    }
+
+    const changed = await editor.edit((builder) => builder.replace(
+      new vscode.Range(document.positionAt(offset), document.positionAt(initialText.length)),
+      `${offset > 0 ? '\n' : ''}${upsertSourceSection(body, generated)}`,
+    ));
+    if (!changed) {
+      await vscode.window.showErrorMessage(t('source.insertFailed'));
+    }
+  } catch (err) {
+    if (err instanceof vscode.CancellationError) return;
+    const kind = err instanceof LLMError ? err.kind : 'other';
+    const status = err instanceof LLMError ? err.status ?? 'none' : 'none';
+    log(`Source generation failed: provider=${llm.name} kind=${kind} status=${status}`);
+    await reportLlmError(context, err, document.uri, 'source');
+  }
 }
 
 export function deactivate(): void {

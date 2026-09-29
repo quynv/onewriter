@@ -19,13 +19,26 @@ function uri(value) {
 }
 function document(text = 'We look forward to your reply.', value = 'file:///writing.md', start = 3, end = 18) {
   const offsets = [];
+  let content = text;
+  const document = {
+    uri: uri(value), getText: () => content,
+    offsetAt: (position) => { offsets.push(position); return position.offset; },
+    positionAt: (offset) => ({ offset }), version: 1,
+  };
   return {
-    document: { uri: uri(value), getText: () => text, offsetAt: (position) => { offsets.push(position); return position.offset; } },
+    document,
     selection: { start: { offset: start }, end: { offset: end } }, offsets,
+    edit: async (callback) => {
+      callback({ replace: (range, replacement) => {
+        content = content.slice(0, range.start.offset) + replacement + content.slice(range.end.offset);
+        document.version++;
+      } });
+      return true;
+    },
   };
 }
 function setup(options = {}) {
-  const callbacks = new Map(), messages = [], logs = [], writes = [], stats = [], renders = [], states = [], reviews = [];
+  const callbacks = new Map(), messages = [], logs = [], writes = [], stats = [], renders = [], states = [], reviews = [], sourcePrompts = [];
   const configurationListeners = [], sidebarHtml = [];
   const settings = { uiLanguage: options.locale ?? 'en', nativeLanguage: 'vi', 'review.mode': 'webview' };
   const stateValues = new Map();
@@ -34,6 +47,7 @@ function setup(options = {}) {
   let answer, sidebarProvider, write = async () => {}, stat = async () => ({});
   const vscode = {
     EventEmitter, CancellationError: class extends Error {}, ProgressLocation: { Notification: 1 },
+    Range: class { constructor(start, end) { this.start = start; this.end = end; } },
     ConfigurationTarget: { Global: 1, Workspace: 2, WorkspaceFolder: 3 },
     DiagnosticSeverity: { Error: 0, Warning: 1, Information: 2 }, ViewColumn: { One: 1, Beside: 2 },
     Uri: { parse: uri, joinPath: (base, ...parts) => uri(`${base.toString()}/${parts.join('/')}`) },
@@ -71,15 +85,22 @@ function setup(options = {}) {
   class Renderer { show(value) { renders.push(value.toString()); } dispose() {} }
   const saves = [];
   const result = options.result ?? { issues: [], chunks: [], rewritten: '', overallComment: '' };
+  const provider = {
+    createProvider: async () => ({
+      name: 'gemini',
+      complete: async (prompt) => { sourcePrompts.push(prompt); return options.sourceResult ?? 'Nội dung mẫu.'; },
+    }),
+    requestReview: async (...args) => { reviews.push(args); return result; },
+  };
   const extension = loadTs('src/extension.ts', options.realLocal ? { vscode } : {
     vscode,
     './llm/secrets': { migrateLegacyLlmConfig: async () => {} },
     './review/inline': { InlineRenderer: Renderer }, './review/diff': { DiffRenderer: Renderer }, './review/panel': { PanelRenderer: Renderer },
-    '../llm/provider': { createProvider: async () => ({ name: 'gemini' }), requestReview: async () => { reviews.push(true); return result; } },
+    './llm/provider': provider, '../llm/provider': provider,
     './anki/save': { saveQueuedChunksToAnki: async (...args) => saves.push(args) },
   });
   return {
-    vscode, context, callbacks, messages, logs, writes, stats, renders, saves, states, result, reviews,
+    vscode, context, callbacks, messages, logs, writes, stats, renders, saves, states, result, reviews, sourcePrompts,
     start: async () => { const api = await extension.activate(context); await tick(); return api; },
     run: async (id, ...args) => { assert.equal(typeof callbacks.get(`onewriter.${id}`), 'function', `missing command ${id}`); return callbacks.get(`onewriter.${id}`)(...args); },
     setWrite: (fn) => { write = fn; }, setStat: (fn) => { stat = fn; }, setAnswer: (value) => { answer = value; },
@@ -102,6 +123,58 @@ function setup(options = {}) {
     reviewPersisted: () => stateValues.get('onewriter.reviewSessions.v1'),
   };
 }
+
+test('generateSource inserts native-language Source while preserving front matter and learner draft', async () => {
+  const h = setup({ sourceResult: 'Tôi thức dậy lúc bảy giờ.' });
+  await h.start();
+  const editor = document([
+    '---', 'lang: ja', 'level: N2', 'style: polite',
+    'topic: một ngày làm việc của tôi', '---', '', '私の下書きです。',
+  ].join('\n'));
+  h.vscode.window.activeTextEditor = editor;
+
+  await h.run('generateSource');
+
+  assert.equal(editor.document.getText(), [
+    '---', 'lang: ja', 'level: N2', 'style: polite',
+    'topic: một ngày làm việc của tôi', '---', '',
+    '## Source', '', 'Tôi thức dậy lúc bảy giờ.', '',
+    '## Writing', '', '私の下書きです。', '',
+  ].join('\n'));
+  assert.match(h.sourcePrompts[0], /Vietnamese/);
+  assert.match(h.sourcePrompts[0], /một ngày làm việc của tôi/);
+});
+
+test('generateSource requires a topic without calling the provider', async () => {
+  const h = setup(); await h.start();
+  h.vscode.window.activeTextEditor = document('---\nlang: ja\nlevel: N2\n---\n\n私の下書きです。');
+
+  await h.run('generateSource');
+
+  assert.equal(h.sourcePrompts.length, 0);
+  assert.match(h.messages.at(-1)[1], /topic/i);
+});
+
+test('review with Source sends only Writing plus the source reference', async () => {
+  const result = {
+    issues: [], chunks: [], rewritten: '私は毎朝七時に起きて、仕事へ行きます。',
+    overallComment: '内容は一致しています。',
+  };
+  const h = setup({ result }); await h.start();
+  h.vscode.window.activeTextEditor = document([
+    '---', 'lang: ja', 'level: N2', 'topic: 朝', '---', '',
+    '## Source', '', 'Tôi thức dậy lúc bảy giờ.', '',
+    '## Writing', '', '私は毎朝七時に起きて、朝ご飯を食べてから仕事へ行きます。',
+  ].join('\n'));
+
+  await h.run('review');
+
+  assert.equal(h.reviews.length, 1);
+  assert.equal(h.reviews[0][1], '私は毎朝七時に起きて、朝ご飯を食べてから仕事へ行きます。');
+  assert.equal(h.reviews[0][4], 'Tôi thức dậy lúc bảy giờ.');
+  assert.match(result.rewritten, /^---[\s\S]*## Source[\s\S]*## Writing/);
+  assert.match(result.rewritten, /私は毎朝七時に起きて、仕事へ行きます。$/);
+});
 
 test('activation exposes the Markdown-It extension API', async () => {
   const h = setup();

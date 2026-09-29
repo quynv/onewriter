@@ -11,6 +11,7 @@ import { log } from '../output';
 import { t } from '../i18n';
 import type { ChunkQueueStore } from '../chunks/store';
 import type { ReviewMode } from '../types';
+import { composeReviewedDocument, parsePracticeBody } from '../practice/source';
 
 export class ReviewController {
   constructor(
@@ -23,7 +24,8 @@ export class ReviewController {
 
   async review(document: vscode.TextDocument): Promise<void> {
     const { body, offset } = stripFrontMatter(document.getText());
-    if (body.trim().length < 20) {
+    const exercise = parsePracticeBody(body);
+    if (exercise.writing.trim().length < 20) {
       vscode.window.showInformationMessage(t('review.tooShort'));
       return;
     }
@@ -44,11 +46,21 @@ export class ReviewController {
           }),
           cancellable: true,
         },
-        (_progress, token) => requestReview(llm, body, config, token),
+        (_progress, token) => requestReview(
+          llm,
+          exercise.writing,
+          config,
+          token,
+          exercise.source,
+        ),
       );
 
+      if (result.rewritten) {
+        result.rewritten = composeReviewedDocument(document.getText(), result.rewritten);
+      }
+
       // Range do extension tự dò, không lấy từ LLM.
-      result.issues = locateIssues(document, result.issues, offset);
+      result.issues = locateIssues(document, result.issues, offset + exercise.writingOffset);
 
       const session = {
         uri: document.uri,
@@ -174,9 +186,10 @@ export class ReviewController {
 
     const updated = await vscode.workspace.openTextDocument(uri);
     if (this.store.get(uri) !== session) return;
-    const { offset } = stripFrontMatter(updated.getText());
+    const { body, offset } = stripFrontMatter(updated.getText());
+    const { writingOffset } = parsePracticeBody(body);
     const remaining = this.store.pending(session);
-    const relocated = locateIssues(updated, remaining, offset);
+    const relocated = locateIssues(updated, remaining, offset + writingOffset);
 
     for (const issue of remaining) {
       const match = relocated.find((r) => r.id === issue.id);
